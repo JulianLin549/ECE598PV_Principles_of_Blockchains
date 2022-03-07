@@ -1,0 +1,39 @@
+student netid: powenwl2-yutekuo2
+
+running 1 test
+test miner::test::sp2022autograder031 ... FAILED
+
+failures:
+
+---- miner::test::sp2022autograder031 stdout ----
+thread '<unnamed>' panicked at 'attempt to subtract with overflow', src/types/merkle.rs:61:21
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+thread 'miner::test::sp2022autograder031' panicked at 'timeout: the function call took 0 ms. Max time 60000 ms', src/miner/mod.rs:207:5
+
+
+failures:
+    miner::test::sp2022autograder031
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+student netid: powenwl2-yutekuo2
+
+running 1 test
+test miner::test::sp2022autograder031 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+student netid: powenwl2-yutekuo2
+
+running 1 test
+test miner::test::sp2022autograder031 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+student netid: powenwl2-yutekuo2
+
+running 1 test
+test miner::test::sp2022autograder031 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+

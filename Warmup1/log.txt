@@ -1,0 +1,9 @@
+student netid: yutekuo2
+
+running 3 tests
+test types::address::test::sp2022autograder001 ... ok
+test types::transaction::tests::sp2022autograder002 ... ok
+test types::transaction::tests::sp2022autograder003 ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+

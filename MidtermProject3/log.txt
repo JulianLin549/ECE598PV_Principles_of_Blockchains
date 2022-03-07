@@ -1,0 +1,9 @@
+student netid: powenwl2-yutekuo2
+
+running 3 tests
+test network::worker::test::sp2022autograder042 ... ok
+test network::worker::test::sp2022autograder041 ... ok
+test network::worker::test::sp2022autograder043 ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
