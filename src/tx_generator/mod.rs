@@ -134,6 +134,7 @@ impl Context {
             let new_tx = generate_random_signed_transaction();
             let new_tx_hash = new_tx.hash();
             // send to worker, worker will put into mempool and broadcast
+            // don't allow duplicate tx
             if !mempool_with_lock.tx_to_process.contains(&new_tx_hash) {
                 self.tx_sender
                     .send(new_tx.clone())
@@ -143,7 +144,7 @@ impl Context {
             if let OperatingState::Run(i) = self.operating_state {
                 if i != 0 {
                     let interval = time::Duration::from_micros(i as u64);
-                    thread::sleep(interval);
+                    thread::sleep(interval * 100);
                 }
             }
             std::mem::drop(mempool_with_lock);

@@ -84,21 +84,13 @@ impl Worker {
                     let mut missing_hashes: Vec<H256> = Vec::new();
                     // check if blocks are in chain
                     for recv_hash in recv_new_hashes {
-                        let mut flag: bool = false;
-                        for (block_hash, _) in blockchain_with_lock.blockchain.iter() {
-                            if *block_hash != recv_hash {
-                                missing_hashes.push(recv_hash);
-                            }
+                        // if block already exists in either blockchain or orphan_buffer, skip
+                        if blockchain_with_lock.blockchain.contains_key(&recv_hash)
+                            || orphan_buffer.contains_key(&recv_hash)
+                        {
+                            continue;
                         }
-                        for (block_hash, _) in orphan_buffer.iter() {
-                            if *block_hash == recv_hash {
-                                println!("find the parent of orphan");
-                                flag = true;
-                            }
-                        }
-                        if !flag {
-                            missing_hashes.push(recv_hash);
-                        }
+                        missing_hashes.push(recv_hash.clone());
                     }
                     if missing_hashes.len() != 0 {
                         peer.write(Message::GetBlocks(missing_hashes));
@@ -107,15 +99,13 @@ impl Worker {
                 Message::GetBlocks(missing_hashes) => {
                     let mut block_to_send: Vec<Block> = Vec::new();
                     for missing_hash in missing_hashes {
-                        for (block_hash, block) in blockchain_with_lock.blockchain.iter() {
-                            if missing_hash == *block_hash {
-                                block_to_send.push(block.clone())
-                            }
+                        // if found block in either blockchain or orphan_buffer, send it
+                        if blockchain_with_lock.blockchain.contains_key(&missing_hash) {
+                            block_to_send
+                                .push(blockchain_with_lock.blockchain[&missing_hash].clone());
                         }
-                        for (block_hash, block) in orphan_buffer.iter() {
-                            if *block_hash == missing_hash {
-                                block_to_send.push(block.clone());
-                            }
+                        if orphan_buffer.contains_key(&missing_hash) {
+                            block_to_send.push(orphan_buffer[&missing_hash].clone());
                         }
                     }
 
@@ -125,6 +115,7 @@ impl Worker {
                 }
 
                 Message::Blocks(recv_blocks) => {
+                    println!("new block received!");
                     let mut new_block_hashes: Vec<H256> = Vec::new();
                     let mut get_blocks = Vec::new();
                     for block in recv_blocks {
@@ -177,6 +168,7 @@ impl Worker {
                                                     orphan_block.clone().content.data;
 
                                                 blockchain_with_lock.insert(&orphan_block);
+
                                                 orphans_with_parent.push(hash.clone());
 
                                                 //remove tx from mempool

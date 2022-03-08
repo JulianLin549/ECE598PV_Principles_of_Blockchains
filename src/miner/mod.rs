@@ -107,8 +107,8 @@ impl Context {
 
     fn miner_loop(&mut self) {
         // main mining loop
-        // block: 1MB
-        let block_size_limit = 1024;
+        // block: 50 txs
+        let block_tx_num_limit = 100;
         loop {
             // check and react to control signals
             match self.operating_state {
@@ -175,15 +175,18 @@ impl Context {
 
             // choose tx in mempool then plug them into block
             let mut transactions = Vec::new();
-            let mut block_size = 0;
+            let mut block_tx_num = 0;
             for tx_key in mempool_with_lock.tx_map.keys() {
                 let tx = mempool_with_lock.tx_map[&tx_key].clone();
-                let message = bincode::serialize(&tx).unwrap();
-                if block_size + message.len() > block_size_limit {
+                // let message = bincode::serialize(&tx).unwrap();
+                if block_tx_num + 1 > block_tx_num_limit {
                     break;
                 }
                 transactions.push(tx);
-                block_size += message.len();
+                block_tx_num += 1;
+            }
+            if block_tx_num < 50 {
+                continue;
             }
 
             //create merkle root
@@ -208,7 +211,9 @@ impl Context {
 
             // Check whether the proof-of-work hash puzzle is solved or not.
             if block.hash() <= difficulty {
-                println!("Successfully mined a block {:?}", block);
+                // println!("Successfully mined a block {:?}", block);
+                println!("Successfully mined a block");
+
                 // remove used tx in mempool
                 for tx in block.clone().content.data {
                     mempool_with_lock.remove(&tx);
