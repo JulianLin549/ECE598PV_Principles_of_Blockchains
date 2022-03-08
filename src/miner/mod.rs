@@ -108,7 +108,7 @@ impl Context {
     fn miner_loop(&mut self) {
         // main mining loop
         // block: 50 txs
-        let block_tx_num_limit = 100;
+        let block_tx_num_limit = 10;
         loop {
             // check and react to control signals
             match self.operating_state {
@@ -116,11 +116,11 @@ impl Context {
                     let signal = self.control_chan.recv().unwrap();
                     match signal {
                         ControlSignal::Exit => {
-                            info!("Miner shutting down");
+                            println!("Miner shutting down");
                             self.operating_state = OperatingState::ShutDown;
                         }
                         ControlSignal::Start(i) => {
-                            info!("Miner starting in continuous mode with lambda {}", i);
+                            println!("Miner starting in continuous mode with lambda {}", i);
                             self.operating_state = OperatingState::Run(i);
                         }
                         ControlSignal::Update => {
@@ -176,22 +176,21 @@ impl Context {
             // choose tx in mempool then plug them into block
             let mut transactions = Vec::new();
             let mut block_tx_num = 0;
-            for tx_key in mempool_with_lock.tx_map.keys() {
-                let tx = mempool_with_lock.tx_map[&tx_key].clone();
+            for (tx_key, tx) in mempool_with_lock.tx_map.iter() {
                 // let message = bincode::serialize(&tx).unwrap();
                 if block_tx_num + 1 > block_tx_num_limit {
                     break;
                 }
-                transactions.push(tx);
+                transactions.push(tx.clone());
                 block_tx_num += 1;
             }
-            if block_tx_num < 50 {
+            // if mempool no enough tx to process
+            if block_tx_num < 10 {
                 continue;
             }
 
             //create merkle root
-
-            let merkle_tree = MerkleTree::new(&transactions);
+            let merkle_tree = MerkleTree::new(transactions.as_ref());
             let merkle_root = merkle_tree.root();
 
             // create empty content
@@ -208,11 +207,17 @@ impl Context {
                 header: header,
                 content: content,
             };
+            println!("block hash: {:?}", block.hash());
+            println!(
+                "block smaller than diff? : {:?}",
+                block.hash() <= difficulty
+            );
 
             // Check whether the proof-of-work hash puzzle is solved or not.
             if block.hash() <= difficulty {
-                // println!("Successfully mined a block {:?}", block);
-                println!("Successfully mined a block");
+                println!("Successfully mined a block {:?}", block);
+                // println!("Successfully mined a block");
+                println!("The size of block is {}", std::mem::size_of_val(&block));
 
                 // remove used tx in mempool
                 for tx in block.clone().content.data {

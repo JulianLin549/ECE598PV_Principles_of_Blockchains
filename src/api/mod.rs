@@ -179,9 +179,9 @@ impl Server {
                         }
                         "/blockchain/txs-in-mempool" => {
                             let mempool = tx_mempool.lock().unwrap();
-                            let tx_to_process = &mempool.tx_to_process;
+                            let tx_map = &mempool.tx_map;
                             let mut result = Vec::new();
-                            for tx_hash in tx_to_process {
+                            for tx_hash in tx_map.keys() {
                                 result.push(tx_hash.to_string());
                             }
                             std::mem::drop(mempool);

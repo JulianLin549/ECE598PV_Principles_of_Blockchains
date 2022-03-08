@@ -16,10 +16,10 @@ impl Blockchain {
     pub fn new() -> Self {
         let parent: H256 = [0u8; 32].into();
         let nonce: u32 = 0;
-        // let difficulty: H256 = [0u8; 32].into();
+        // difficulty_setting
         let difficulty: H256 = [
-            0, 50, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0,
+            50, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0,
         ]
         .into();
         // let difficulty: H256 = hex!("11011718210e0b3b608814e04e61fde06d0df794319a12162f287412df3ec920").into();

@@ -81,6 +81,7 @@ impl Worker {
                 }
 
                 Message::NewBlockHashes(recv_new_hashes) => {
+                    println!("Receive NewBlockHashes message");
                     let mut missing_hashes: Vec<H256> = Vec::new();
                     // check if blocks are in chain
                     for recv_hash in recv_new_hashes {
@@ -97,6 +98,8 @@ impl Worker {
                     }
                 }
                 Message::GetBlocks(missing_hashes) => {
+                    println!("Receive GetBlocks message");
+
                     let mut block_to_send: Vec<Block> = Vec::new();
                     for missing_hash in missing_hashes {
                         // if found block in either blockchain or orphan_buffer, send it
@@ -197,10 +200,9 @@ impl Worker {
                     }
                 }
                 Message::NewTransactionHashes(recv_new_hashes) => {
-                    // println!("Receiving new transaction");
                     let mut missing_txs: Vec<H256> = Vec::new();
                     for recv_tx_hash in recv_new_hashes {
-                        if !mempool_with_lock.tx_to_process.contains(&recv_tx_hash) {
+                        if !mempool_with_lock.tx_evidence.contains(&recv_tx_hash) {
                             missing_txs.push(recv_tx_hash.clone());
                         } else {
                             // println!("tx {} already in mempool", recv_tx_hash);
@@ -238,7 +240,7 @@ impl Worker {
                             &signed_tx.signature,
                         ) {
                             let signed_tx_hash = signed_tx.hash();
-                            if !mempool_with_lock.tx_to_process.contains(&signed_tx_hash) {
+                            if !mempool_with_lock.tx_evidence.contains(&signed_tx_hash) {
                                 // insert tx into current node's mempool
                                 mempool_with_lock.insert(&signed_tx);
                                 new_tx_hashes.push(signed_tx_hash);
