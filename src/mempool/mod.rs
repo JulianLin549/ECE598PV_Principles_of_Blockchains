@@ -14,8 +14,6 @@ impl Mempool {
         }
     }
 
-    // mempool_with_lock.tx_map.insert(signed_tx_hash, signed_tx);
-    // mempool_with_lock.tx_to_process.insert(signed_tx_hash, true);
     pub fn insert(&mut self, transaction: &SignedTransaction) {
         let tx_hash: H256 = transaction.hash();
         // no duplicate tx

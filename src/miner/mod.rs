@@ -223,9 +223,9 @@ impl Context {
                     .send(block.clone())
                     .expect("Send finished block error");
             }
-
             std::mem::drop(blockchain_with_lock);
             std::mem::drop(mempool_with_lock);
+
             if let OperatingState::Run(i) = self.operating_state {
                 if i != 0 {
                     let interval = time::Duration::from_micros(i as u64);

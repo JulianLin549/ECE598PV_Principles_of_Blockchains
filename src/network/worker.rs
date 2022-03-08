@@ -91,7 +91,6 @@ impl Worker {
                             continue;
                         }
                         peer.write(Message::GetBlocks(vec![recv_hash.clone()]));
-                        // missing_hashes.push(recv_hash.clone());
                     }
                 }
                 Message::GetBlocks(missing_hashes) => {
@@ -99,21 +98,14 @@ impl Worker {
                     for missing_hash in missing_hashes {
                         // if found block in either blockchain or orphan_buffer, send it
                         if blockchain_with_lock.blockchain.contains_key(&missing_hash) {
-                            // block_to_send
-                            //     .push(blockchain_with_lock.blockchain[&missing_hash].clone());
                             peer.write(Message::Blocks(vec![blockchain_with_lock.blockchain
                                 [&missing_hash]
                                 .clone()]));
                         }
                         if orphan_buffer.contains_key(&missing_hash) {
-                            // block_to_send.push(orphan_buffer[&missing_hash].clone());
                             peer.write(Message::Blocks(vec![orphan_buffer[&missing_hash].clone()]));
                         }
                     }
-
-                    // if block_to_send.len() != 0 {
-                    //     peer.write(Message::Blocks(block_to_send));
-                    // }
                 }
 
                 Message::Blocks(recv_blocks) => {
