@@ -4,5 +4,5 @@ target/
 **/*.rs.bk
 .idea
 .DS_Store
-.json
+*.json
 /node_modules
