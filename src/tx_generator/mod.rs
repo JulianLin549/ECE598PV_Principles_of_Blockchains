@@ -140,14 +140,14 @@ impl Context {
                     .send(new_tx.clone())
                     .expect("Send new tx error");
             }
+            std::mem::drop(mempool_with_lock);
 
             if let OperatingState::Run(i) = self.operating_state {
                 if i != 0 {
                     let interval = time::Duration::from_micros(i as u64);
-                    thread::sleep(interval * 5000);
+                    thread::sleep(interval);
                 }
             }
-            std::mem::drop(mempool_with_lock);
         }
     }
 }

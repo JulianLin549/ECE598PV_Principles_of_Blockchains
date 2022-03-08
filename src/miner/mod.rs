@@ -108,7 +108,7 @@ impl Context {
     fn miner_loop(&mut self) {
         // main mining loop
         // block: 50 txs
-        let block_tx_num_limit = 10;
+        let block_tx_num_limit = 50;
         loop {
             // check and react to control signals
             match self.operating_state {
@@ -176,6 +176,10 @@ impl Context {
             // choose tx in mempool then plug them into block
             let mut transactions = Vec::new();
             let mut block_tx_num = 0;
+            // if mempool no enough tx to process
+            if mempool_with_lock.tx_map.len() < 10 {
+                continue;
+            }
             for (tx_key, tx) in mempool_with_lock.tx_map.iter() {
                 // let message = bincode::serialize(&tx).unwrap();
                 if block_tx_num + 1 > block_tx_num_limit {
@@ -183,10 +187,6 @@ impl Context {
                 }
                 transactions.push(tx.clone());
                 block_tx_num += 1;
-            }
-            // if mempool no enough tx to process
-            if block_tx_num < 10 {
-                continue;
             }
 
             //create merkle root
@@ -207,11 +207,6 @@ impl Context {
                 header: header,
                 content: content,
             };
-            println!("block hash: {:?}", block.hash());
-            println!(
-                "block smaller than diff? : {:?}",
-                block.hash() <= difficulty
-            );
 
             // Check whether the proof-of-work hash puzzle is solved or not.
             if block.hash() <= difficulty {
@@ -229,15 +224,14 @@ impl Context {
                     .expect("Send finished block error");
             }
 
+            std::mem::drop(blockchain_with_lock);
+            std::mem::drop(mempool_with_lock);
             if let OperatingState::Run(i) = self.operating_state {
                 if i != 0 {
                     let interval = time::Duration::from_micros(i as u64);
                     thread::sleep(interval);
                 }
             }
-
-            std::mem::drop(blockchain_with_lock);
-            std::mem::drop(mempool_with_lock);
         }
     }
 }

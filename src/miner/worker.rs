@@ -50,7 +50,7 @@ impl Worker {
 
             self.server
                 .broadcast(Message::NewBlockHashes(vec![_block.hash()]));
-            //std::mem::drop(blockchain_with_lock);
+            std::mem::drop(blockchain_with_lock);
         }
     }
 }

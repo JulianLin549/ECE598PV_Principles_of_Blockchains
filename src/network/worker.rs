@@ -82,7 +82,6 @@ impl Worker {
 
                 Message::NewBlockHashes(recv_new_hashes) => {
                     println!("Receive NewBlockHashes message");
-                    let mut missing_hashes: Vec<H256> = Vec::new();
                     // check if blocks are in chain
                     for recv_hash in recv_new_hashes {
                         // if block already exists in either blockchain or orphan_buffer, skip
@@ -91,30 +90,30 @@ impl Worker {
                         {
                             continue;
                         }
-                        missing_hashes.push(recv_hash.clone());
-                    }
-                    if missing_hashes.len() != 0 {
-                        peer.write(Message::GetBlocks(missing_hashes));
+                        peer.write(Message::GetBlocks(vec![recv_hash.clone()]));
+                        // missing_hashes.push(recv_hash.clone());
                     }
                 }
                 Message::GetBlocks(missing_hashes) => {
                     println!("Receive GetBlocks message");
-
-                    let mut block_to_send: Vec<Block> = Vec::new();
                     for missing_hash in missing_hashes {
                         // if found block in either blockchain or orphan_buffer, send it
                         if blockchain_with_lock.blockchain.contains_key(&missing_hash) {
-                            block_to_send
-                                .push(blockchain_with_lock.blockchain[&missing_hash].clone());
+                            // block_to_send
+                            //     .push(blockchain_with_lock.blockchain[&missing_hash].clone());
+                            peer.write(Message::Blocks(vec![blockchain_with_lock.blockchain
+                                [&missing_hash]
+                                .clone()]));
                         }
                         if orphan_buffer.contains_key(&missing_hash) {
-                            block_to_send.push(orphan_buffer[&missing_hash].clone());
+                            // block_to_send.push(orphan_buffer[&missing_hash].clone());
+                            peer.write(Message::Blocks(vec![orphan_buffer[&missing_hash].clone()]));
                         }
                     }
 
-                    if block_to_send.len() != 0 {
-                        peer.write(Message::Blocks(block_to_send));
-                    }
+                    // if block_to_send.len() != 0 {
+                    //     peer.write(Message::Blocks(block_to_send));
+                    // }
                 }
 
                 Message::Blocks(recv_blocks) => {
@@ -149,6 +148,7 @@ impl Worker {
                                         continue;
                                     }
                                     // insert into blockchain
+                                    println!("new block inserted!");
                                     blockchain_with_lock.insert(&block);
                                     new_block_hashes.push(block.hash());
 
