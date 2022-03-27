@@ -14,9 +14,9 @@ async function load() {
 	let txs1 = JSON.parse(results[0]);
 	let txs2 = JSON.parse(results[1]);
 	let txs3 = JSON.parse(results[2]);
-	await fs.writeFile('tx1.json', JSON.stringify(txs1));
-	await fs.writeFile('tx2.json', JSON.stringify(txs2));
-	await fs.writeFile('tx3.json', JSON.stringify(txs3));
+	// await fs.writeFile('tx1.json', JSON.stringify(txs1));
+	// await fs.writeFile('tx2.json', JSON.stringify(txs2));
+	// await fs.writeFile('tx3.json', JSON.stringify(txs3));
 
 	console.log(txs1.length, txs2.length, txs3.length)
 	let flag1 = true;

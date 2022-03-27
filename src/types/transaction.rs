@@ -7,16 +7,18 @@ use ring::signature::{self, Ed25519KeyPair, KeyPair, Signature};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 pub struct State {
+    //utxo
+    //key: (previous_out, index)
+    //value: (amount, recipient)
     pub utxo: HashMap<(H256, u8), (u64, Address)>,
 }
 impl State {
     pub fn new() -> Self {
-        use crate::types::key_pair;
         let mut utxo = HashMap::new();
         let bytes32 = [0u8; 32];
         let tx_hash: H256 = bytes32.into();
         let output_idx: u8 = 0;
-        let value: u64 = 10000;
+        let value: u64 = 100000;
         let seed = [0u8; 32];
         let key = Ed25519KeyPair::from_seed_unchecked(&seed).unwrap();
         let public_key = key.public_key();

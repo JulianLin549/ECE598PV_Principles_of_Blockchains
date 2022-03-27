@@ -2,11 +2,18 @@ use super::message::Message;
 use super::peer;
 use super::server::Handle as ServerHandle;
 use crate::mempool::Mempool;
+use crate::types::address::Address;
 use crate::types::block::Block;
 use crate::types::hash::Hashable;
 use crate::types::hash::H256;
 use crate::types::transaction::verify;
 use crate::types::transaction::SignedTransaction;
+use crate::types::transaction::State;
+
+use async_dup::MutexGuard;
+use rand::Rng;
+use ring::digest;
+use ring::signature::{self, Ed25519KeyPair, KeyPair, Signature};
 
 use crate::Blockchain;
 use log::{debug, error, warn};
@@ -26,6 +33,7 @@ pub struct Worker {
     blockchain: Arc<Mutex<Blockchain>>,
     tx_mempool: Arc<Mutex<Mempool>>,
     orphan_buffer: Arc<Mutex<HashMap<H256, Block>>>,
+    state: Arc<Mutex<State>>,
 }
 
 impl Worker {
@@ -36,6 +44,7 @@ impl Worker {
         blockchain: &Arc<Mutex<Blockchain>>,
         tx_mempool: &Arc<Mutex<Mempool>>,
         orphan_buffer: &Arc<Mutex<HashMap<H256, Block>>>,
+        state: &Arc<Mutex<State>>,
     ) -> Self {
         Self {
             msg_chan: msg_src,
@@ -44,6 +53,7 @@ impl Worker {
             blockchain: Arc::clone(blockchain),
             tx_mempool: Arc::clone(&tx_mempool),
             orphan_buffer: Arc::clone(&orphan_buffer),
+            state: Arc::clone(&state),
         }
     }
 
@@ -70,6 +80,8 @@ impl Worker {
             let msg: Message = bincode::deserialize(&msg).unwrap();
             let mut blockchain_with_lock = self.blockchain.lock().unwrap();
             let mut mempool_with_lock = self.tx_mempool.lock().unwrap();
+            let mut state_with_lock = self.state.lock().unwrap();
+
             let mut orphan_buffer = self.orphan_buffer.lock().unwrap();
             match msg {
                 Message::Ping(nonce) => {
@@ -146,6 +158,7 @@ impl Worker {
 
                                     //remove tx from mempool
                                     for transaction in transactions {
+                                        //TODO: check transaction is valid
                                         mempool_with_lock.remove(&transaction);
                                         //TODO: state_un.update(&transaction);
                                     }
@@ -222,23 +235,57 @@ impl Worker {
                     let mut new_tx_hashes: Vec<H256> = Vec::new();
                     for signed_tx in signed_txs {
                         //Verify digital signature of a transaction
-                        //TODO:
-                        // double spend check: check whether input related previous output value sum is more than
-                        // current output
-                        // parent check: public key(s) matches the owner(s)'s address of these inputs
-                        if verify(
+                        //Check if the transaction is signed correctly by the public key(s).
+                        if !verify(
                             &signed_tx.transaction,
                             &signed_tx.public_key,
                             &signed_tx.signature,
                         ) {
-                            let signed_tx_hash = signed_tx.hash();
-                            if !mempool_with_lock.tx_evidence.contains(&signed_tx_hash) {
-                                // insert tx into current node's mempool
-                                mempool_with_lock.insert(&signed_tx);
-                                new_tx_hashes.push(signed_tx_hash);
+                            println!("fail tx signature check");
+                            continue;
+                        }
+                        let tx_ins = signed_tx.transaction.tx_input;
+                        let mut input_amount: u64 = 0;
+                        let owner_pk = signed_tx.public_key;
+                        for tx_in in tx_ins {
+                            let pre_out = tx_in.previous_output;
+                            let index = tx_in.index;
+                            // check if the inputs to the transactions are not spent i.e. exist in State
+                            if !state_with_lock.utxo.contains_key(&(pre_out, index)) {
+                                println!("fail signature check: tx_in not exist, tx double spend");
+                                break;
                             }
+                            let temp = state_with_lock.utxo[&(pre_out, index)]; //find tx in state
+                            let recipient_address = temp.1;
+                            let owner_pk_hash: H256 =
+                                digest::digest(&digest::SHA256, owner_pk.as_ref()).into();
+                            let owner_address: Address = owner_pk_hash.to_addr();
+                            //check the public key(s) matches the owner(s)'s address of these inputs.
+                            if owner_address != recipient_address {
+                                println!("fail signature check: owner of tx input doesn't match to previous tx output");
+                                break;
+                            }
+                            input_amount += temp.0;
+                        }
+                        let tx_outputs = signed_tx.transaction.tx_output;
+                        let mut output_amount: u64 = 0;
+                        for tx_out in tx_outputs {
+                            output_amount += tx_out.value;
+                        }
+                        // Spending Check: check the values of inputs are not less than those of outputs.
+                        if input_amount < output_amount {
+                            println!("fail spending check: input less than output");
+                            continue;
+                        }
+
+                        let signed_tx_hash = signed_tx.hash();
+                        if !mempool_with_lock.tx_evidence.contains(&signed_tx_hash) {
+                            // insert tx into current node's mempool
+                            mempool_with_lock.insert(&signed_tx);
+                            new_tx_hashes.push(signed_tx_hash);
                         }
                     }
+
                     self.server
                         .broadcast(Message::NewTransactionHashes(new_tx_hashes));
                 }
@@ -303,6 +350,8 @@ fn generate_test_worker_and_start() -> (TestMsgSender, ServerTestReceiver, Vec<H
     let tx_mempool = Arc::new(Mutex::new(Mempool::new()));
     let orphan_buffer: HashMap<H256, Block> = HashMap::new();
     let orphan_buffer = Arc::new(Mutex::new(orphan_buffer));
+    let state = State::new();
+    let state = Arc::new(Mutex::new(state));
     let worker = Worker::new(
         1,
         msg_chan,
@@ -310,6 +359,7 @@ fn generate_test_worker_and_start() -> (TestMsgSender, ServerTestReceiver, Vec<H
         &blockchain,
         &tx_mempool,
         &orphan_buffer,
+        &state,
     );
     worker.start();
     (test_msg_sender, server_receiver, hashes)
