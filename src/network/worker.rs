@@ -10,7 +10,6 @@ use crate::types::transaction::verify;
 use crate::types::transaction::SignedTransaction;
 use crate::types::transaction::State;
 
-use async_dup::MutexGuard;
 use rand::Rng;
 use ring::digest;
 use ring::signature::{self, Ed25519KeyPair, KeyPair, Signature};
@@ -18,7 +17,7 @@ use ring::signature::{self, Ed25519KeyPair, KeyPair, Signature};
 use crate::Blockchain;
 use log::{debug, error, warn};
 use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 #[cfg(any(test, test_utilities))]
 use super::peer::TestReceiver as PeerTestReceiver;
@@ -146,8 +145,8 @@ impl Worker {
                                         .difficulty
                                 {
                                     let transactions = block.clone().content.data;
-
-                                    if !is_block_tx_valid(transactions.clone()) {
+                                    //check transactions in block are valid
+                                    if !is_block_tx_valid(transactions.clone(), state_with_lock) {
                                         println!("Invalid block received. Transaction is not signed properly!");
                                         continue;
                                     }
@@ -158,9 +157,8 @@ impl Worker {
 
                                     //remove tx from mempool
                                     for transaction in transactions {
-                                        //TODO: check transaction is valid
                                         mempool_with_lock.remove(&transaction);
-                                        //TODO: state_un.update(&transaction);
+                                        state_with_lock.update(&transaction);
                                     }
                                     //if current block is orphan_buffer block's parent
                                     let mut queue: VecDeque<H256> = VecDeque::new();
@@ -182,7 +180,7 @@ impl Worker {
                                                 //remove tx from mempool
                                                 for transaction in transactions {
                                                     mempool_with_lock.remove(&transaction);
-                                                    //TODO: state_un.update(&transaction);
+                                                    state_with_lock.update(&transaction);
                                                 }
 
                                                 queue.push_back(hash.clone())
@@ -234,47 +232,8 @@ impl Worker {
                 Message::Transactions(signed_txs) => {
                     let mut new_tx_hashes: Vec<H256> = Vec::new();
                     for signed_tx in signed_txs {
-                        //Verify digital signature of a transaction
-                        //Check if the transaction is signed correctly by the public key(s).
-                        if !verify(
-                            &signed_tx.transaction,
-                            &signed_tx.public_key,
-                            &signed_tx.signature,
-                        ) {
-                            println!("fail tx signature check");
-                            continue;
-                        }
-                        let tx_ins = signed_tx.transaction.tx_input;
-                        let mut input_amount: u64 = 0;
-                        let owner_pk = signed_tx.public_key;
-                        for tx_in in tx_ins {
-                            let pre_out = tx_in.previous_output;
-                            let index = tx_in.index;
-                            // check if the inputs to the transactions are not spent i.e. exist in State
-                            if !state_with_lock.utxo.contains_key(&(pre_out, index)) {
-                                println!("fail signature check: tx_in not exist, tx double spend");
-                                break;
-                            }
-                            let temp = state_with_lock.utxo[&(pre_out, index)]; //find tx in state
-                            let recipient_address = temp.1;
-                            let owner_pk_hash: H256 =
-                                digest::digest(&digest::SHA256, owner_pk.as_ref()).into();
-                            let owner_address: Address = owner_pk_hash.to_addr();
-                            //check the public key(s) matches the owner(s)'s address of these inputs.
-                            if owner_address != recipient_address {
-                                println!("fail signature check: owner of tx input doesn't match to previous tx output");
-                                break;
-                            }
-                            input_amount += temp.0;
-                        }
-                        let tx_outputs = signed_tx.transaction.tx_output;
-                        let mut output_amount: u64 = 0;
-                        for tx_out in tx_outputs {
-                            output_amount += tx_out.value;
-                        }
-                        // Spending Check: check the values of inputs are not less than those of outputs.
-                        if input_amount < output_amount {
-                            println!("fail spending check: input less than output");
+                        // check is transaction valid
+                        if !transaction_check(signed_tx, state_with_lock) {
                             continue;
                         }
 
@@ -298,18 +257,60 @@ impl Worker {
     }
 }
 
-pub fn is_block_tx_valid(signed_transactions: Vec<SignedTransaction>) -> bool {
-    for signed_transaction in &signed_transactions {
-        let transaction = signed_transaction.clone().transaction;
-        let pub_key = signed_transaction.clone().public_key;
-        let signature = signed_transaction.clone().signature;
-
-        // signature check for all tx
-        // TODO: double spend check, parent check
-        if !verify(&transaction, &pub_key, &signature) {
+pub fn is_block_tx_valid(
+    signed_txs: Vec<SignedTransaction>,
+    state_with_lock: MutexGuard<State>,
+) -> bool {
+    for signed_tx in signed_txs {
+        if !transaction_check(signed_tx, state_with_lock) {
             return false;
         }
-        //if another condition, return false
+    }
+    true
+}
+
+pub fn transaction_check(signed_tx: SignedTransaction, state_with_lock: MutexGuard<State>) -> bool {
+    //Verify digital signature of a transaction
+    //Check if the transaction is signed correctly by the public key(s).
+    if !verify(
+        &signed_tx.transaction,
+        &signed_tx.public_key,
+        &signed_tx.signature,
+    ) {
+        println!("fail tx signature check");
+        return false;
+    }
+    let tx_ins = signed_tx.transaction.tx_input;
+    let mut input_amount: u64 = 0;
+    let owner_pk = signed_tx.public_key;
+    for tx_in in tx_ins {
+        let pre_out = tx_in.previous_output;
+        let index = tx_in.index;
+        // check if the inputs to the transactions are not spent i.e. exist in State
+        if !state_with_lock.utxo.contains_key(&(pre_out, index)) {
+            println!("fail signature check: tx_in not exist, tx double spend");
+            return false;
+        }
+        let temp = state_with_lock.utxo[&(pre_out, index)]; //find tx in state
+        let pre_tx_recipient_address = temp.1;
+        let owner_pk_hash: H256 = digest::digest(&digest::SHA256, owner_pk.as_ref()).into();
+        let owner_address: Address = owner_pk_hash.to_addr();
+        //check the public key(s) matches the owner(s)'s address of these inputs.
+        if owner_address != pre_tx_recipient_address {
+            println!("fail signature check: owner of tx input doesn't match to previous tx output");
+            return false;
+        }
+        input_amount += temp.0;
+    }
+    let tx_outputs = signed_tx.transaction.tx_output;
+    let mut output_amount: u64 = 0;
+    for tx_out in tx_outputs {
+        output_amount += tx_out.value;
+    }
+    // Spending Check: check the values of inputs are not less than those of outputs.
+    if input_amount < output_amount {
+        println!("fail spending check: input less than output");
+        return false;
     }
     true
 }

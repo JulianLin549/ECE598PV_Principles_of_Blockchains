@@ -13,14 +13,16 @@ pub struct State {
     pub utxo: HashMap<(H256, u8), (u64, Address)>,
 }
 impl State {
+    // ICO
     pub fn new() -> Self {
         let mut utxo = HashMap::new();
         let bytes32 = [0u8; 32];
         let tx_hash: H256 = bytes32.into();
         let output_idx: u8 = 0;
         let value: u64 = 100000;
-        let seed = [0u8; 32];
-        let key = Ed25519KeyPair::from_seed_unchecked(&seed).unwrap();
+        let init_public_key: [u8; 85] = *b"AAAA000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+        let key = signature::Ed25519KeyPair::from_pkcs8(init_public_key.as_ref().into()).unwrap();
+
         let public_key = key.public_key();
         let pb_hash: H256 = digest::digest(&digest::SHA256, public_key.as_ref()).into();
         let recipient: Address = pb_hash.to_addr();
@@ -34,29 +36,29 @@ impl State {
         State { utxo: utxo }
     }
 
-    pub fn update(&mut self, transaction: &SignedTransaction) {
-        println!("Before state update");
-        for (key, val) in self.utxo.iter() {
-            println!("key: {:?}, val: {:?}", key, val);
-        }
-        let tx = transaction.transaction.clone();
-        let input = tx.tx_input;
-        let output = tx.tx_output;
-        for txin in input {
-            let key = (txin.previous_output, txin.index);
+    pub fn update(&mut self, signed_tx: &SignedTransaction) {
+        // println!("Before state update");
+        // for (key, val) in self.utxo.iter() {
+        //     println!("key: {:?}, val: {:?}", key, val);
+        // }
+        let tx = signed_tx.transaction.clone();
+        let tx_inputs = tx.tx_input;
+        let tx_outputs = tx.tx_output;
+        for tx_in in tx_inputs {
+            let key = (tx_in.previous_output, tx_in.index);
             self.utxo.remove(&key);
         }
         let mut idx = 0;
-        for txout in output {
-            let tx_hash = transaction.hash();
+        for tx_out in tx_outputs {
+            let tx_hash = signed_tx.hash();
             self.utxo
-                .insert((tx_hash, idx), (txout.value, txout.recipient_addr));
+                .insert((tx_hash, idx), (tx_out.value, tx_out.recipient_addr));
             idx += 1;
         }
-        println!("After state update");
-        for (key, val) in self.utxo.iter() {
-            println!("key: {:?}, val: {:?}", key, val);
-        }
+        // println!("After state update");
+        // for (key, val) in self.utxo.iter() {
+        //     println!("key: {:?}, val: {:?}", key, val);
+        // }
     }
 }
 

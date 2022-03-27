@@ -217,6 +217,7 @@ impl Context {
                 // remove used tx in mempool
                 for tx in block.clone().content.data {
                     mempool_with_lock.remove(&tx);
+                    //TODO update state
                 }
                 blockchain_with_lock.insert(&block);
                 self.finished_block_chan
