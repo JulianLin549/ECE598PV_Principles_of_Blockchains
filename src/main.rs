@@ -12,7 +12,7 @@ pub mod types;
 
 use crate::types::block::Block;
 use crate::types::hash::H256;
-use crate::types::transaction::State;
+use crate::types::state::State;
 use api::Server as ApiServer;
 use blockchain::Blockchain;
 use clap::clap_app;
@@ -24,7 +24,6 @@ use std::process;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time;
-
 fn main() {
     // parse command line arguments
     let matches = clap_app!(Bitcoin =>

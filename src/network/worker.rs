@@ -6,9 +6,9 @@ use crate::types::address::Address;
 use crate::types::block::Block;
 use crate::types::hash::Hashable;
 use crate::types::hash::H256;
+use crate::types::state::State;
 use crate::types::transaction::verify;
 use crate::types::transaction::SignedTransaction;
-use crate::types::transaction::State;
 
 use ring::digest;
 

@@ -3,20 +3,19 @@ pub mod worker;
 use log::info;
 
 use crate::mempool::Mempool;
-use crate::types::transaction::State;
-use crossbeam::channel::{unbounded, Receiver, Sender, TryRecvError};
-use std::time;
-use std::time::SystemTime;
-
 use crate::types::block::Block;
 use crate::types::block::Content;
 use crate::types::block::Header;
 use crate::types::hash::Hashable;
 use crate::types::merkle::MerkleTree;
+use crate::types::state::State;
 use crate::Blockchain;
+use crossbeam::channel::{unbounded, Receiver, Sender, TryRecvError};
 use rand::Rng;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time;
+use std::time::SystemTime;
 
 enum ControlSignal {
     Start(u64), // the number controls the lambda of interval between block generation
