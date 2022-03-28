@@ -48,8 +48,18 @@ fn main() {
     let orphan_buffer: HashMap<H256, Block> = HashMap::new();
     let orphan_buffer = Arc::new(Mutex::new(orphan_buffer));
 
-    let state = State::new();
+    let state = State::new(); // including ICO
     let state = Arc::new(Mutex::new(state));
+
+    //
+    // TODO: insert into block_to_state: genesis: ico_state 創始塊對應ico state
+    // [G](ico_out(1000)) -> [ico_tx](ico_out(1000))
+    // mempool: ico_tx ---------------|
+
+    // [G](ico_out(1000)) -> [ico_tx, tx1, tx2, tx3](tx1(500), tx2(250), tx3(250)) -> [tx, tx, tx](tx1(500), tx2(250), tx3(250) -tx -tx -tx )
+    // mempool: ico_tx
+    // state: tx1(500), tx2(250), tx3(250) tx, tx, tx
+
     // parse p2p server address
     let p2p_addr = matches
         .value_of("peer_addr")

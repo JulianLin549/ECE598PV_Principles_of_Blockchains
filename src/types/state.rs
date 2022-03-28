@@ -30,6 +30,7 @@ impl State {
         let init_key = (tx_hash, output_idx);
         let init_val = (value, recipient);
         utxo.insert(init_key, init_val);
+        // TODO: insert into mempool
         println!(
             "ICO completed. {:?} coins are granted to {:?}",
             value, recipient

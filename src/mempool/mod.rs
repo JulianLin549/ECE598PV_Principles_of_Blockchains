@@ -14,6 +14,7 @@ impl Mempool {
         }
     }
 
+    // TODO: tx check?
     pub fn insert(&mut self, transaction: &SignedTransaction) {
         let tx_hash: H256 = transaction.hash();
         // no duplicate tx
