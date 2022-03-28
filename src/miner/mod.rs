@@ -4,7 +4,6 @@ use log::info;
 
 use crate::mempool::Mempool;
 use crossbeam::channel::{unbounded, Receiver, Sender, TryRecvError};
-use std::io::BufRead;
 use std::time;
 use std::time::SystemTime;
 
@@ -13,7 +12,6 @@ use crate::types::block::Content;
 use crate::types::block::Header;
 use crate::types::hash::Hashable;
 use crate::types::merkle::MerkleTree;
-use crate::types::transaction::SignedTransaction;
 use crate::Blockchain;
 use rand::Rng;
 use std::sync::{Arc, Mutex};
@@ -180,7 +178,7 @@ impl Context {
             if mempool_with_lock.tx_map.len() < 10 {
                 continue;
             }
-            for (tx_key, tx) in mempool_with_lock.tx_map.iter() {
+            for (_tx_key, tx) in mempool_with_lock.tx_map.iter() {
                 // let message = bincode::serialize(&tx).unwrap();
                 if block_tx_num + 1 > block_tx_num_limit {
                     break;

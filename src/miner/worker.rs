@@ -3,7 +3,7 @@ use crate::network::server::Handle as ServerHandle;
 use crate::types::block::Block;
 use crate::types::hash::Hashable;
 use crate::Blockchain;
-use crossbeam::channel::{unbounded, Receiver, Sender, TryRecvError};
+use crossbeam::channel::Receiver;
 use log::info;
 use std::sync::{Arc, Mutex};
 use std::thread;

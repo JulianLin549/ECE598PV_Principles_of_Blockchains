@@ -10,14 +10,12 @@ use crate::types::transaction::verify;
 use crate::types::transaction::SignedTransaction;
 use crate::types::transaction::State;
 
-use rand::Rng;
 use ring::digest;
-use ring::signature::{self, Ed25519KeyPair, KeyPair, Signature};
 
 use crate::Blockchain;
 use log::{debug, error, warn};
 use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 
 #[cfg(any(test, test_utilities))]
 use super::peer::TestReceiver as PeerTestReceiver;
@@ -80,8 +78,8 @@ impl Worker {
             let mut blockchain_with_lock = self.blockchain.lock().unwrap();
             let mut mempool_with_lock = self.tx_mempool.lock().unwrap();
             let mut state_with_lock = self.state.lock().unwrap();
-
             let mut orphan_buffer = self.orphan_buffer.lock().unwrap();
+
             match msg {
                 Message::Ping(nonce) => {
                     debug!("Ping: {}", nonce);
@@ -146,7 +144,10 @@ impl Worker {
                                 {
                                     let transactions = block.clone().content.data;
                                     //check transactions in block are valid
-                                    if !is_block_tx_valid(transactions.clone(), state_with_lock) {
+                                    if !is_block_tx_valid(
+                                        transactions.clone(),
+                                        state_with_lock.clone(),
+                                    ) {
                                         println!("Invalid block received. Transaction is not signed properly!");
                                         continue;
                                     }
@@ -233,7 +234,7 @@ impl Worker {
                     let mut new_tx_hashes: Vec<H256> = Vec::new();
                     for signed_tx in signed_txs {
                         // check is transaction valid
-                        if !transaction_check(signed_tx, state_with_lock) {
+                        if !transaction_check(signed_tx.clone(), state_with_lock.clone()) {
                             continue;
                         }
 
@@ -241,7 +242,7 @@ impl Worker {
                         if !mempool_with_lock.tx_evidence.contains(&signed_tx_hash) {
                             // insert tx into current node's mempool
                             mempool_with_lock.insert(&signed_tx);
-                            new_tx_hashes.push(signed_tx_hash);
+                            new_tx_hashes.push(signed_tx.hash());
                         }
                     }
 
@@ -253,23 +254,20 @@ impl Worker {
             std::mem::drop(blockchain_with_lock);
             std::mem::drop(mempool_with_lock);
             std::mem::drop(orphan_buffer);
+            std::mem::drop(state_with_lock);
         }
     }
 }
-
-pub fn is_block_tx_valid(
-    signed_txs: Vec<SignedTransaction>,
-    state_with_lock: MutexGuard<State>,
-) -> bool {
+pub fn is_block_tx_valid(signed_txs: Vec<SignedTransaction>, state_with_lock: State) -> bool {
     for signed_tx in signed_txs {
-        if !transaction_check(signed_tx, state_with_lock) {
+        if !transaction_check(signed_tx, state_with_lock.clone()) {
             return false;
         }
     }
     true
 }
 
-pub fn transaction_check(signed_tx: SignedTransaction, state_with_lock: MutexGuard<State>) -> bool {
+pub fn transaction_check(signed_tx: SignedTransaction, state_with_lock: State) -> bool {
     //Verify digital signature of a transaction
     //Check if the transaction is signed correctly by the public key(s).
     if !verify(
@@ -314,7 +312,6 @@ pub fn transaction_check(signed_tx: SignedTransaction, state_with_lock: MutexGua
     }
     true
 }
-
 #[cfg(any(test, test_utilities))]
 struct TestMsgSender {
     s: smol::channel::Sender<(Vec<u8>, peer::Handle)>,

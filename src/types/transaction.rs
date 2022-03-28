@@ -6,6 +6,8 @@ use ring::digest;
 use ring::signature::{self, Ed25519KeyPair, KeyPair, Signature};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct State {
     //utxo
     //key: (previous_out, index)

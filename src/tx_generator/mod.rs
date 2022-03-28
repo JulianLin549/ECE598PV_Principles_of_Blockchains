@@ -1,23 +1,19 @@
 pub mod worker;
 
 use crate::mempool::Mempool;
-use crate::network::message::Message;
 use crate::network::server::Handle as ServerHandle;
 use crate::types::address::Address;
-use crate::types::hash::{Hashable, H256};
+use crate::types::hash::Hashable;
 use rand::distributions::{Distribution, Uniform}; // 0.6.5
 
 use crate::types::transaction::{
     generate_random_hash, sign, SignedTransaction, Transaction, TxIn, TxOut,
 };
-use ring::signature::{self, Ed25519KeyPair, KeyPair, Signature};
+use ring::signature::{self, Ed25519KeyPair, KeyPair};
 
 use crossbeam::channel::{unbounded, Receiver, Sender, TryRecvError};
 use log::info;
-use rand::seq::SliceRandom;
-use rand::Rng;
 
-use std::ops::Add;
 use std::sync::{Arc, Mutex};
 use std::time;
 use std::{thread, vec};

@@ -1,5 +1,5 @@
 use crate::types::block::Block;
-use crate::types::block::{self, *};
+use crate::types::block::*;
 use crate::types::hash::{Hashable, H256};
 use crate::types::merkle::MerkleTree;
 use std::collections::HashMap;
@@ -35,7 +35,7 @@ impl Blockchain {
             merkle_root: merkle_root,
         };
         let content = Content { data: transactions };
-        let mut genesis_block = Block {
+        let genesis_block = Block {
             header: header,
             content: content,
         };
@@ -85,7 +85,7 @@ impl Blockchain {
             return longest_chain;
         }
 
-        for i in 0..self.longest {
+        for _ in 0..self.longest {
             longest_chain.push(cur_block_hash);
             cur_block_hash = self.blockchain[&cur_block_hash].header.parent;
         }

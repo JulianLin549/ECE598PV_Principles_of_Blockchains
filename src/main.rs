@@ -12,6 +12,7 @@ pub mod types;
 
 use crate::types::block::Block;
 use crate::types::hash::H256;
+use crate::types::transaction::State;
 use api::Server as ApiServer;
 use blockchain::Blockchain;
 use clap::clap_app;
@@ -48,6 +49,8 @@ fn main() {
     let orphan_buffer: HashMap<H256, Block> = HashMap::new();
     let orphan_buffer = Arc::new(Mutex::new(orphan_buffer));
 
+    let state = State::new();
+    let state = Arc::new(Mutex::new(state));
     // parse p2p server address
     let p2p_addr = matches
         .value_of("peer_addr")
@@ -91,6 +94,7 @@ fn main() {
         &blockchain,
         &tx_mempool,
         &orphan_buffer,
+        &state,
     );
     worker_ctx.start();
 

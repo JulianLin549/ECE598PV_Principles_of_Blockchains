@@ -1,8 +1,8 @@
-use crate::mempool::{self, Mempool};
+use crate::mempool::Mempool;
 use crate::network::message::Message;
 use crate::network::server::Handle as ServerHandle;
 use crate::types::hash::Hashable;
-use crate::types::transaction::{self, SignedTransaction};
+use crate::types::transaction::SignedTransaction;
 use crossbeam::channel::Receiver;
 use log::info;
 use std::sync::{Arc, Mutex};
