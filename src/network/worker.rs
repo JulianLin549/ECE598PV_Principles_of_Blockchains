@@ -147,20 +147,39 @@ impl Worker {
                                         .header
                                         .difficulty
                                 {
-                                    let transactions = block.clone().content.data;
+                                    let txs = block.clone().content.data;
                                     //check transactions in block are valid
                                     if !is_block_tx_valid(
-                                        transactions.clone(),
+                                        txs.clone(),
                                         state_with_lock.clone(),
+                                        mempool_with_lock.clone(),
                                     ) {
-                                        println!("Invalid block received. Transaction is not signed properly!");
                                         continue;
                                     }
 
-                                    //remove tx from mempool, update state
-                                    for transaction in transactions {
-                                        mempool_with_lock.remove(&transaction);
-                                        state_with_lock.update(&transaction);
+                                    //receive new block, remove tx from mempool, update state
+                                    for tx in txs {
+                                        mempool_with_lock.remove(&tx);
+                                        state_with_lock.update(&tx);
+
+                                        //remove any double spend tx_in in mempool found in block
+                                        //add tx_in in block to spent_tx_in
+                                        for tx_in in tx.clone().transaction.tx_input {
+                                            if mempool_with_lock
+                                                .spent_tx_in
+                                                .contains_key(&(tx_in.previous_output, tx_in.index))
+                                            {
+                                                // remove tx in mempool using hash
+                                                let tx_hash = mempool_with_lock.spent_tx_in
+                                                    [&(tx_in.previous_output, tx_in.index)];
+                                                mempool_with_lock.remove_with_hash(tx_hash);
+                                            }
+                                            // add tx_in to spent_tx_in
+                                            mempool_with_lock.spent_tx_in.insert(
+                                                (tx_in.previous_output, tx_in.index),
+                                                tx.hash(),
+                                            );
+                                        }
                                     }
 
                                     //insert into block-to-state-map
@@ -180,18 +199,45 @@ impl Worker {
 
                                         for (hash, orphan_block) in orphan_buffer.iter() {
                                             if orphan_block.header.parent == cur_hash {
-                                                let transactions =
-                                                    orphan_block.clone().content.data;
+                                                let txs = orphan_block.clone().content.data;
 
+                                                //remove tx from mempool
+                                                for tx in txs {
+                                                    mempool_with_lock.remove(&tx);
+                                                    state_with_lock.update(&tx);
+                                                    //remove any double spend tx_in in mempool found in block
+                                                    //add tx_in in block to spent_tx_in
+                                                    for tx_in in tx.clone().transaction.tx_input {
+                                                        if mempool_with_lock
+                                                            .spent_tx_in
+                                                            .contains_key(&(
+                                                                tx_in.previous_output,
+                                                                tx_in.index,
+                                                            ))
+                                                        {
+                                                            // remove tx in mempool using hash
+                                                            let tx_hash = mempool_with_lock
+                                                                .spent_tx_in[&(
+                                                                tx_in.previous_output,
+                                                                tx_in.index,
+                                                            )];
+                                                            mempool_with_lock
+                                                                .remove_with_hash(tx_hash);
+                                                        }
+                                                        // add tx_in to spent_tx_in
+                                                        mempool_with_lock.spent_tx_in.insert(
+                                                            (tx_in.previous_output, tx_in.index),
+                                                            tx.hash(),
+                                                        );
+                                                    }
+                                                }
+                                                //insert into block-to-state-map
+                                                bts_map_with_lock
+                                                    .insert(block.hash(), state_with_lock.clone());
+                                                // insert into blockchain
                                                 blockchain_with_lock.insert(&orphan_block);
 
                                                 orphans_with_parent.push(hash.clone());
-
-                                                //remove tx from mempool
-                                                for transaction in transactions {
-                                                    mempool_with_lock.remove(&transaction);
-                                                    state_with_lock.update(&transaction);
-                                                }
 
                                                 queue.push_back(hash.clone())
                                             }
@@ -249,9 +295,11 @@ impl Worker {
 
                         let signed_tx_hash = signed_tx.hash();
                         if !mempool_with_lock.tx_evidence.contains(&signed_tx_hash) {
-                            // insert tx into current node's mempool
-                            mempool_with_lock.insert(&signed_tx);
-                            new_tx_hashes.push(signed_tx.hash());
+                            // if pass double spend check, (in mempool.insert)
+                            // then insert tx into current node's mempool then send to everyone
+                            if mempool_with_lock.insert(&signed_tx) {
+                                new_tx_hashes.push(signed_tx.hash());
+                            }
                         }
                     }
 
@@ -268,10 +316,27 @@ impl Worker {
         }
     }
 }
-pub fn is_block_tx_valid(signed_txs: Vec<SignedTransaction>, state_with_lock: State) -> bool {
-    for signed_tx in signed_txs {
+pub fn is_block_tx_valid(
+    signed_txs: Vec<SignedTransaction>,
+    state_with_lock: State,
+    mempool: Mempool,
+) -> bool {
+    for signed_tx in signed_txs.clone() {
         if !transaction_check(signed_tx, state_with_lock.clone()) {
             return false;
+        }
+    }
+    // double spend check: if tx_in in block already in spent_tx_in, reject
+    for signed_tx in signed_txs.clone() {
+        let tx_ins = signed_tx.transaction.tx_input;
+        for tx_in in tx_ins {
+            if mempool
+                .spent_tx_in
+                .contains_key(&(tx_in.previous_output, tx_in.index))
+            {
+                println!("fail double spend check, tx_in already in spent_tx_in");
+                return false;
+            }
         }
     }
     true
@@ -322,6 +387,7 @@ pub fn transaction_check(signed_tx: SignedTransaction, state_with_lock: State) -
     }
     true
 }
+
 #[cfg(any(test, test_utilities))]
 struct TestMsgSender {
     s: smol::channel::Sender<(Vec<u8>, peer::Handle)>,

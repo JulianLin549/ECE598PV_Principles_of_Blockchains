@@ -224,12 +224,24 @@ impl Context {
                 // remove used tx in mempool, update state
                 for tx in block.clone().content.data {
                     mempool_with_lock.remove(&tx);
-                    // TODO: if state_with_lock fail, try this
-                    // let tip = blockchain.tip();
-                    // let state = bts_map_with_lock[&tip.hash()];
-                    // state.update(&tx);
-
                     state_with_lock.update(&tx);
+                    //remove any double spend tx_in in mempool found in block
+                    //add tx_in in block to spent_tx_in
+                    for tx_in in tx.clone().transaction.tx_input {
+                        if mempool_with_lock
+                            .spent_tx_in
+                            .contains_key(&(tx_in.previous_output, tx_in.index))
+                        {
+                            // remove tx in mempool using hash
+                            let tx_hash = mempool_with_lock.spent_tx_in
+                                [&(tx_in.previous_output, tx_in.index)];
+                            mempool_with_lock.remove_with_hash(tx_hash);
+                        }
+                        // add tx_in to spent_tx_in
+                        mempool_with_lock
+                            .spent_tx_in
+                            .insert((tx_in.previous_output, tx_in.index), tx.hash());
+                    }
                 }
                 //insert into block-to-state-map
                 bts_map_with_lock.insert(block.hash(), state_with_lock.clone());
