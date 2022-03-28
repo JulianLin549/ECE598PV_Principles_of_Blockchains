@@ -149,11 +149,7 @@ impl Worker {
                                 {
                                     let txs = block.clone().content.data;
                                     //check transactions in block are valid
-                                    if !is_block_tx_valid(
-                                        txs.clone(),
-                                        state_with_lock.clone(),
-                                        mempool_with_lock.clone(),
-                                    ) {
+                                    if !is_block_tx_valid(txs.clone(), state_with_lock.clone()) {
                                         continue;
                                     }
 
@@ -174,7 +170,7 @@ impl Worker {
                                                     [&(tx_in.previous_output, tx_in.index)];
                                                 mempool_with_lock.remove_with_hash(tx_hash);
                                             }
-                                            // add tx_in to spent_tx_in
+                                            // add tx_in to spent_tx_in, mark as spent
                                             mempool_with_lock.spent_tx_in.insert(
                                                 (tx_in.previous_output, tx_in.index),
                                                 tx.hash(),
@@ -316,27 +312,10 @@ impl Worker {
         }
     }
 }
-pub fn is_block_tx_valid(
-    signed_txs: Vec<SignedTransaction>,
-    state_with_lock: State,
-    mempool: Mempool,
-) -> bool {
+pub fn is_block_tx_valid(signed_txs: Vec<SignedTransaction>, state_with_lock: State) -> bool {
     for signed_tx in signed_txs.clone() {
         if !transaction_check(signed_tx, state_with_lock.clone()) {
             return false;
-        }
-    }
-    // double spend check: if tx_in in block already in spent_tx_in, reject
-    for signed_tx in signed_txs.clone() {
-        let tx_ins = signed_tx.transaction.tx_input;
-        for tx_in in tx_ins {
-            if mempool
-                .spent_tx_in
-                .contains_key(&(tx_in.previous_output, tx_in.index))
-            {
-                println!("fail double spend check, tx_in already in spent_tx_in");
-                return false;
-            }
         }
     }
     true
