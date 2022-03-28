@@ -99,7 +99,7 @@ fn main() {
     worker_ctx.start();
 
     // start the miner
-    let (miner_ctx, miner, finished_block_chan) = miner::new(&blockchain, &tx_mempool);
+    let (miner_ctx, miner, finished_block_chan) = miner::new(&blockchain, &tx_mempool, &state);
     let miner_worker_ctx = miner::worker::Worker::new(&server, finished_block_chan, &blockchain);
 
     miner_ctx.start();

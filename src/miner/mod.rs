@@ -3,6 +3,7 @@ pub mod worker;
 use log::info;
 
 use crate::mempool::Mempool;
+use crate::types::transaction::State;
 use crossbeam::channel::{unbounded, Receiver, Sender, TryRecvError};
 use std::time;
 use std::time::SystemTime;
@@ -36,6 +37,7 @@ pub struct Context {
     finished_block_chan: Sender<Block>,
     blockchain: Arc<Mutex<Blockchain>>,
     tx_mempool: Arc<Mutex<Mempool>>,
+    state: Arc<Mutex<State>>,
 }
 
 #[derive(Clone)]
@@ -47,6 +49,7 @@ pub struct Handle {
 pub fn new(
     blockchain: &Arc<Mutex<Blockchain>>,
     tx_mempool: &Arc<Mutex<Mempool>>,
+    state: &Arc<Mutex<State>>,
 ) -> (Context, Handle, Receiver<Block>) {
     let (signal_chan_sender, signal_chan_receiver) = unbounded();
     let (finished_block_sender, finished_block_receiver) = unbounded();
@@ -54,9 +57,10 @@ pub fn new(
     let ctx = Context {
         control_chan: signal_chan_receiver,
         operating_state: OperatingState::Paused,
+        finished_block_chan: finished_block_sender,
         blockchain: Arc::clone(blockchain),
         tx_mempool: Arc::clone(tx_mempool),
-        finished_block_chan: finished_block_sender,
+        state: Arc::clone(state),
     };
 
     let handle = Handle {
@@ -72,8 +76,9 @@ fn test_new() -> (Context, Handle, Receiver<Block>) {
     let blockchain = Arc::new(Mutex::new(blockchain));
     let tx_mempool = Mempool::new();
     let tx_mempool = Arc::new(Mutex::new(tx_mempool));
-
-    new(&blockchain, &tx_mempool)
+    let state = State::new();
+    let state = Arc::new(Mutex::new(state));
+    new(&blockchain, &tx_mempool, &state)
 }
 
 impl Handle {
@@ -157,6 +162,7 @@ impl Context {
             // TODO for student: if block mining finished, you can have something like: self.finished_block_chan.send(block.clone()).expect("Send finished block error");
             let mut blockchain_with_lock = self.blockchain.lock().unwrap();
             let mut mempool_with_lock = self.tx_mempool.lock().unwrap();
+            let mut state_with_lock = self.state.lock().unwrap();
 
             let parent_hash = blockchain_with_lock.tip;
             // mining: create random nonce
@@ -215,7 +221,7 @@ impl Context {
                 // remove used tx in mempool
                 for tx in block.clone().content.data {
                     mempool_with_lock.remove(&tx);
-                    //TODO update state
+                    state_with_lock.update(&tx);
                 }
                 blockchain_with_lock.insert(&block);
                 self.finished_block_chan
@@ -224,6 +230,7 @@ impl Context {
             }
             std::mem::drop(blockchain_with_lock);
             std::mem::drop(mempool_with_lock);
+            std::mem::drop(state_with_lock);
 
             if let OperatingState::Run(i) = self.operating_state {
                 if i != 0 {
