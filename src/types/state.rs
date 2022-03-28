@@ -1,10 +1,11 @@
+use crate::mempool::Mempool;
 use crate::types::address::Address;
 use crate::types::hash::{Hashable, H256};
 use crate::types::transaction::SignedTransaction;
 use ring::digest;
 use ring::signature::{self, KeyPair};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct State {
@@ -30,7 +31,7 @@ impl State {
         let init_key = (tx_hash, output_idx);
         let init_val = (value, recipient);
         utxo.insert(init_key, init_val);
-        // TODO: insert into mempool
+
         println!(
             "ICO completed. {:?} coins are granted to {:?}",
             value, recipient
@@ -61,5 +62,17 @@ impl State {
         // for (key, val) in self.utxo.iter() {
         //     println!("key: {:?}, val: {:?}", key, val);
         // }
+    }
+}
+pub struct BlockToStateMap {
+    pub bts_map: HashMap<H256, State>,
+}
+impl BlockToStateMap {
+    pub fn new() -> Self {
+        let bts_map = HashMap::new();
+        BlockToStateMap { bts_map: bts_map }
+    }
+    pub fn insert(&mut self, block_hash: H256, state: State) {
+        self.bts_map.insert(block_hash, state);
     }
 }

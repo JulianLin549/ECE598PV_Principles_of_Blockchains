@@ -24,6 +24,7 @@ use std::process;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time;
+use types::state::BlockToStateMap;
 fn main() {
     // parse command line arguments
     let matches = clap_app!(Bitcoin =>
@@ -41,6 +42,7 @@ fn main() {
     let verbosity = matches.occurrences_of("verbose") as usize;
     stderrlog::new().verbosity(verbosity).init().unwrap();
     let blockchain = Blockchain::new();
+    let genesis_block_hash = blockchain.tip();
     let blockchain = Arc::new(Mutex::new(blockchain));
     let tx_mempool = mempool::Mempool::new();
     let tx_mempool = Arc::new(Mutex::new(tx_mempool));
@@ -49,16 +51,12 @@ fn main() {
     let orphan_buffer = Arc::new(Mutex::new(orphan_buffer));
 
     let state = State::new(); // including ICO
+
+    let mut bts_map = BlockToStateMap::new();
+    bts_map.insert(genesis_block_hash, state.clone());
+
     let state = Arc::new(Mutex::new(state));
-
-    //
-    // TODO: insert into block_to_state: genesis: ico_state 創始塊對應ico state
-    // [G](ico_out(1000)) -> [ico_tx](ico_out(1000))
-    // mempool: ico_tx ---------------|
-
-    // [G](ico_out(1000)) -> [ico_tx, tx1, tx2, tx3](tx1(500), tx2(250), tx3(250)) -> [tx, tx, tx](tx1(500), tx2(250), tx3(250) -tx -tx -tx )
-    // mempool: ico_tx
-    // state: tx1(500), tx2(250), tx3(250) tx, tx, tx
+    let bts_map = Arc::new(Mutex::new(bts_map));
 
     // parse p2p server address
     let p2p_addr = matches
@@ -104,11 +102,13 @@ fn main() {
         &tx_mempool,
         &orphan_buffer,
         &state,
+        &bts_map,
     );
     worker_ctx.start();
 
     // start the miner
-    let (miner_ctx, miner, finished_block_chan) = miner::new(&blockchain, &tx_mempool, &state);
+    let (miner_ctx, miner, finished_block_chan) =
+        miner::new(&blockchain, &tx_mempool, &state, &bts_map);
     let miner_worker_ctx = miner::worker::Worker::new(&server, finished_block_chan, &blockchain);
 
     miner_ctx.start();

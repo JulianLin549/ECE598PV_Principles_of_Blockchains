@@ -6,6 +6,7 @@ use crate::types::address::Address;
 use crate::types::block::Block;
 use crate::types::hash::Hashable;
 use crate::types::hash::H256;
+use crate::types::state::BlockToStateMap;
 use crate::types::state::State;
 use crate::types::transaction::verify;
 use crate::types::transaction::SignedTransaction;
@@ -31,6 +32,7 @@ pub struct Worker {
     tx_mempool: Arc<Mutex<Mempool>>,
     orphan_buffer: Arc<Mutex<HashMap<H256, Block>>>,
     state: Arc<Mutex<State>>,
+    bts_map: Arc<Mutex<BlockToStateMap>>,
 }
 
 impl Worker {
@@ -42,6 +44,7 @@ impl Worker {
         tx_mempool: &Arc<Mutex<Mempool>>,
         orphan_buffer: &Arc<Mutex<HashMap<H256, Block>>>,
         state: &Arc<Mutex<State>>,
+        bts_map: &Arc<Mutex<BlockToStateMap>>,
     ) -> Self {
         Self {
             msg_chan: msg_src,
@@ -51,6 +54,7 @@ impl Worker {
             tx_mempool: Arc::clone(&tx_mempool),
             orphan_buffer: Arc::clone(&orphan_buffer),
             state: Arc::clone(&state),
+            bts_map: Arc::clone(&bts_map),
         }
     }
 
@@ -79,6 +83,7 @@ impl Worker {
             let mut mempool_with_lock = self.tx_mempool.lock().unwrap();
             let mut state_with_lock = self.state.lock().unwrap();
             let mut orphan_buffer = self.orphan_buffer.lock().unwrap();
+            let mut bts_map_with_lock = self.bts_map.lock().unwrap();
 
             match msg {
                 Message::Ping(nonce) => {
@@ -151,16 +156,20 @@ impl Worker {
                                         println!("Invalid block received. Transaction is not signed properly!");
                                         continue;
                                     }
-                                    // insert into blockchain
-                                    println!("new block inserted!");
-                                    blockchain_with_lock.insert(&block);
-                                    new_block_hashes.push(block.hash());
 
-                                    //remove tx from mempool
+                                    //remove tx from mempool, update state
                                     for transaction in transactions {
                                         mempool_with_lock.remove(&transaction);
                                         state_with_lock.update(&transaction);
                                     }
+
+                                    //insert into block-to-state-map
+                                    bts_map_with_lock.insert(block.hash(), state_with_lock.clone());
+                                    // insert into blockchain
+                                    blockchain_with_lock.insert(&block);
+                                    new_block_hashes.push(block.hash());
+                                    println!("new block inserted!");
+
                                     //if current block is orphan_buffer block's parent
                                     let mut queue: VecDeque<H256> = VecDeque::new();
                                     // bfs
@@ -255,6 +264,7 @@ impl Worker {
             std::mem::drop(mempool_with_lock);
             std::mem::drop(orphan_buffer);
             std::mem::drop(state_with_lock);
+            std::mem::drop(bts_map_with_lock);
         }
     }
 }
@@ -350,6 +360,9 @@ fn generate_test_worker_and_start() -> (TestMsgSender, ServerTestReceiver, Vec<H
     let orphan_buffer = Arc::new(Mutex::new(orphan_buffer));
     let state = State::new();
     let state = Arc::new(Mutex::new(state));
+    let bts_map = BlockToStateMap::new();
+    let bts_map = Arc::new(Mutex::new(bts_map));
+
     let worker = Worker::new(
         1,
         msg_chan,
@@ -358,6 +371,7 @@ fn generate_test_worker_and_start() -> (TestMsgSender, ServerTestReceiver, Vec<H
         &tx_mempool,
         &orphan_buffer,
         &state,
+        &bts_map,
     );
     worker.start();
     (test_msg_sender, server_receiver, hashes)
