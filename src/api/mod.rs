@@ -228,9 +228,10 @@ impl Server {
                                 blockchain_with_lock.all_blocks_in_longest_chain();
                             if height as usize > longest_chain_blocks.len() - 1 {
                                 respond_result!(req, false, "block number exceed longest-chain.");
+                                return;
                             }
                             let block_hash = longest_chain_blocks[height as usize];
-                            let state: State = bts_map_with_lock.bts_map[&block_hash];
+                            let state: State = bts_map_with_lock.bts_map[&block_hash].clone();
                             let utxo = state.utxo;
 
                             for (k, v) in utxo.iter() {

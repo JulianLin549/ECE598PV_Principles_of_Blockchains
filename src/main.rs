@@ -155,7 +155,7 @@ fn main() {
     }
 
     // start the API server
-    ApiServer::start(api_addr, &miner, &server, &blockchain, &tx_gen, &tx_mempool);
+    ApiServer::start(api_addr, &miner, &server, &blockchain, &tx_gen, &tx_mempool, &state, &bts_map);
 
     loop {
         std::thread::park();
