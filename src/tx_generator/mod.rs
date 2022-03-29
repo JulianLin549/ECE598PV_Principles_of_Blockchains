@@ -103,7 +103,6 @@ impl Context {
     }
 
     fn gen_loop(&mut self) {
-        //let mut key_addr_vec: Vec<(Ed25519KeyPair, Address)> = Vec::new();
         let vec_vec: Vec<[u8; 85]> = vec![
                 *b"AAAA000000000000000000000000000000000000000000000000000000000000000000000000000000000",
                 *b"AAAA000000000000000000000000000000000000000000000000000000000000000000000000000000001",
@@ -126,11 +125,7 @@ impl Context {
         for i in 0..vec_vec.len() {
             address_vec.push(Address::address_from_public_key(*key_vec[i].public_key()));
         }
-        // for i in 0..vec_vec.len() {
-        //     let key = signature::Ed25519KeyPair::from_pkcs8(vec_vec[i].as_ref().into()).unwrap();
-        //     let address = Address::address_from_public_key(*key.public_key());
-        //     key_addr_vec.push((key, address));
-        // }
+
         loop {
             // check and react to control signals
             match self.operating_state {
@@ -157,7 +152,8 @@ impl Context {
             let mempool_with_lock = self.tx_mempool.lock().unwrap();
             let state_with_lock = self.state.lock().unwrap();
 
-            let new_tx = generate_random_signed_transaction(&key_vec, &address_vec, state_with_lock.clone());
+            let new_tx =
+                generate_random_signed_transaction(&key_vec, &address_vec, state_with_lock.clone());
             std::mem::drop(state_with_lock);
             let new_tx_hash = new_tx.hash();
             // 7. mempool.insert
@@ -227,27 +223,14 @@ pub fn generate_random_signed_transaction(
 
     let owner_key = &key_vec[idx];
 
-    let step = Uniform::new(0, key_vec.len());
-    let mut rng = rand::thread_rng();
-    let mut rand_choice = step.sample(&mut rng);
-    let mut recipient_address = address_vec[rand_choice];
-    let mut recipient_key = &key_vec[rand_choice];
-    while recipient_address == owner_address {
-        rand_choice = step.sample(&mut rng);
-        recipient_address = address_vec[rand_choice];
-        recipient_key = &key_vec[rand_choice];
+    let mut recipient_addresses: Vec<Address> = Vec::new();
+    for addr in address_vec {
+        if *addr != owner_address {
+            recipient_addresses.push(*addr);
+        }
     }
 
-    // let mut recipient_vec: Vec<(Ed25519KeyPair, Address)> = Vec::new();
-    // let mut owner_key: Ed25519KeyPair;
-    // for (key, addr) in key_addr_vec {
-    //     if addr != owner_address {
-    //         recipient_vec.push((key, addr));
-    //     } else {
-    //         owner_key = key;
-    //     }
-    // }
-    // let recipient_address = recipient_vec[random_select(recipient_vec.len())].1;
+    let recipient_address = recipient_addresses[random_select(recipient_addresses.len())];
 
     // 5. send 1/4 of the amount to recipient, 3/4 to owner if 1/2 amount is greater than 200
     // 6. else send all amount to recipient.
