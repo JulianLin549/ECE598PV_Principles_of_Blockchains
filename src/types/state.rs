@@ -24,7 +24,6 @@ impl State {
         let value: u64 = 100000;
         let init_public_key: [u8; 85] = *b"AAAA000000000000000000000000000000000000000000000000000000000000000000000000000000000";
         let key = signature::Ed25519KeyPair::from_pkcs8(init_public_key.as_ref().into()).unwrap();
-
         let public_key = key.public_key();
         let pb_hash: H256 = digest::digest(&digest::SHA256, public_key.as_ref()).into();
         let recipient: Address = pb_hash.to_addr();

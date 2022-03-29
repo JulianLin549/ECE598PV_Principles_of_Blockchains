@@ -428,10 +428,57 @@ fn generate_test_worker_and_start() -> (TestMsgSender, ServerTestReceiver, Vec<H
 mod test {
     use crate::types::block::generate_random_block;
     use crate::types::hash::Hashable;
+    use crate::types::transaction::{
+        generate_random_hash, sign, SignedTransaction, Transaction, TxIn, TxOut,
+    };
+    use crate::types::address::Address;
+    use ring::signature::{self, Ed25519KeyPair, KeyPair};
+    use crate::State;
     use ntest::timeout;
+    use crate::H256;
+    use super::*;
 
-    use super::super::message::Message;
-    use super::generate_test_worker_and_start;
+    #[test]
+    #[timeout(60000)]
+    fn transaction_check_test() {
+        let state = State::new();
+        let bytes32 = [0u8; 32];
+        let tx_hash: H256 = bytes32.into();
+        let sender_vec: [u8; 85] = *b"AAAA000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+        let sender_private_key = signature::Ed25519KeyPair::from_pkcs8(sender_vec.as_ref().into()).unwrap();
+        let sender_public_key = sender_private_key.public_key();
+        let sender_address = Address::address_from_public_key(*sender_public_key);
+        
+        let receiver_vec: [u8; 85] = *b"AAAA000000000000000000000000000000000000000000000000000000000000000000000000000000001";
+        let receiver_private_key = signature::Ed25519KeyPair::from_pkcs8(receiver_vec.as_ref().into()).unwrap();
+        let receiver_public_key = receiver_private_key.public_key();
+        let receiver_address = Address::address_from_public_key(*receiver_public_key);
+        
+
+        let input = vec![TxIn {
+            previous_output: tx_hash,
+            index: 0,
+        }];
+        let output = vec![TxOut {
+            recipient_addr: receiver_address,
+            value: 0,
+        }];
+    
+        let tx = Transaction {
+            tx_input: input,
+            tx_output: output,
+        };
+
+        let signature = sign(&tx, &sender_private_key).as_ref().to_vec();
+        let sender_public_key = sender_private_key.public_key().as_ref().to_vec();
+        let signed_tx = SignedTransaction {
+            transaction: tx,
+            signature: signature,
+            public_key: sender_public_key
+        };
+
+        assert!(transaction_check(signed_tx, state));
+    }
 
     #[test]
     #[timeout(60000)]
