@@ -163,8 +163,6 @@ impl Context {
             if let OperatingState::ShutDown = self.operating_state {
                 return;
             }
-            // TODO for student: actual mining, create a block
-            // TODO for student: if block mining finished, you can have something like: self.finished_block_chan.send(block.clone()).expect("Send finished block error");
             let mut blockchain_with_lock = self.blockchain.lock().unwrap();
             let mut mempool_with_lock = self.tx_mempool.lock().unwrap();
             let mut state_with_lock = self.state.lock().unwrap();
@@ -182,15 +180,16 @@ impl Context {
                 .unwrap()
                 .as_millis();
 
-            // choose tx in mempool then plug them into block
             let mut transactions = Vec::new();
-            let mut block_tx_num = 0;
+            let mut block_tx_num = 0; //keep track of how many tx are selected
+
             // if mempool no enough tx to process
+            // it has to be here so that there will be at least one tx in a block
             if mempool_with_lock.tx_map.len() < 1 {
                 continue;
             }
+            // select txs from mempool
             for (_tx_key, tx) in mempool_with_lock.tx_map.iter() {
-                // let message = bincode::serialize(&tx).unwrap();
                 if block_tx_num + 1 > block_tx_num_limit {
                     break;
                 }
@@ -212,6 +211,7 @@ impl Context {
                 timestamp: timestamp,
                 merkle_root: merkle_root,
             };
+            // create block to be mined
             let block = Block {
                 header: header,
                 content: content,
@@ -225,8 +225,9 @@ impl Context {
                 for tx in block.clone().content.data {
                     mempool_with_lock.remove(&tx);
                     state_with_lock.update(&tx);
-                    //remove any double spend tx_in in mempool found in block
-                    //add tx_in in block to spent_tx_in
+
+                    // remove any double spend tx_in in mempool found in block,
+                    // add tx_in in block to spent_tx_in
                     for tx_in in tx.clone().transaction.tx_input {
                         if mempool_with_lock
                             .spent_tx_in
@@ -237,7 +238,7 @@ impl Context {
                                 [&(tx_in.previous_output, tx_in.index)];
                             mempool_with_lock.remove_with_hash(tx_hash);
                         }
-                        // add tx_in to spent_tx_in
+                        // mark tx_in as spent in spent_tx_in
                         mempool_with_lock
                             .spent_tx_in
                             .insert((tx_in.previous_output, tx_in.index), tx.hash());

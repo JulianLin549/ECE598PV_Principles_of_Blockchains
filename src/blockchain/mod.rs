@@ -4,13 +4,22 @@ use crate::types::hash::{Hashable, H256};
 use crate::types::merkle::MerkleTree;
 use std::collections::HashMap;
 #[derive(Debug, Default)]
+//////
+/// Blockchain
+/// tip: the tip of the blockchain
+/// longest: the longest chain length
+/// length: keep track of height of block
+//////
 pub struct Blockchain {
     pub blockchain: HashMap<H256, Block>,
     pub tip: H256,
     pub longest: u128,
     pub length: HashMap<H256, u128>,
 }
-
+//////
+/// Blockchain
+///
+//////
 impl Blockchain {
     /// Create a new blockchain, only containing the genesis block
     pub fn new() -> Self {
@@ -22,7 +31,6 @@ impl Blockchain {
             0, 0, 0, 0,
         ]
         .into();
-        // let difficulty: H256 = hex!("11011718210e0b3b608814e04e61fde06d0df794319a12162f287412df3ec920").into();
         let timestamp: u128 = 0;
         let transactions = Vec::new();
         let merkle_tree = MerkleTree::new(transactions.as_ref());
@@ -57,6 +65,8 @@ impl Blockchain {
     }
 
     /// Insert a block into blockchain
+    /// please use blockchain.insert instead of blockchain.blockchain.insert
+    /// the later one will ruin the consistency
     pub fn insert(&mut self, block: &Block) {
         let hash = block.hash();
         let cur_len = self.length[&block.header.parent] + 1; // get current length

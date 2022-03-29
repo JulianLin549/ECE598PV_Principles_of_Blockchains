@@ -23,13 +23,6 @@ pub struct Transaction {
     pub tx_output: Vec<TxOut>,
 }
 
-// Tx_out: 0001[小美50, 小美50]
-// tx_input: [TxIn{0001,0}, TxIn{0001,1}] v
-// tx_input: [TxIn{0001,0}, TxIn{0001,0}] x double spend
-
-// Tx1 { tx_input: [TxIn{0001,0}] tx_out: [老王50]}
-// Tx2 { tx_input: [TxIn{0001,0}] tx_out: [老李50]} x double spend
-
 impl Hashable for Transaction {
     fn hash(&self) -> H256 {
         let m = bincode::serialize(&self).unwrap();

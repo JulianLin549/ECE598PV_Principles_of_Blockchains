@@ -93,7 +93,7 @@ impl Worker {
                 Message::Pong(nonce) => {
                     debug!("Pong: {}", nonce);
                 }
-
+                // receiving NewBlockHashes message mean that peer have new blocks to serve
                 Message::NewBlockHashes(recv_new_hashes) => {
                     println!("Receive NewBlockHashes message");
                     // check if blocks are in chain
@@ -107,6 +107,8 @@ impl Worker {
                         peer.write(Message::GetBlocks(vec![recv_hash.clone()]));
                     }
                 }
+
+                // receiving GetBlocks message mean that peer do not have the blocks, if I have it, I send it.
                 Message::GetBlocks(missing_hashes) => {
                     println!("Receive GetBlocks message");
                     for missing_hash in missing_hashes {
@@ -121,7 +123,7 @@ impl Worker {
                         }
                     }
                 }
-
+                // receiving Blocks message means receiving new blocks
                 Message::Blocks(recv_blocks) => {
                     println!("new block received!");
                     let mut new_block_hashes: Vec<H256> = Vec::new();
@@ -129,7 +131,8 @@ impl Worker {
                     for block in recv_blocks {
                         //if new block not in blockchain
                         if !blockchain_with_lock.blockchain.contains_key(&block.hash()) {
-                            // if parent not in blockchain: orphan
+                            // if parent not in blockchain, then is orphan
+                            // insert into orphan buffer
                             if !blockchain_with_lock
                                 .blockchain
                                 .contains_key(&block.header.parent)
@@ -140,26 +143,25 @@ impl Worker {
                                 }
                             } else {
                                 // if parent in block chain
-                                // if block hash smaller than parent difficult and not in blockchain
-
+                                // if block hash smaller or equal to parent difficulty and not in blockchain, then proceed
                                 if block.hash()
                                     <= blockchain_with_lock.blockchain[&block.header.parent]
                                         .header
                                         .difficulty
                                 {
                                     let txs = block.clone().content.data;
-                                    //check transactions in block are valid
+                                    //check all transactions in block are valid
                                     if !is_block_tx_valid(txs.clone(), state_with_lock.clone()) {
                                         continue;
                                     }
 
-                                    //receive new block, remove tx from mempool, update state
+                                    // block received is valid, remove tx from mempool, update state
                                     for tx in txs {
                                         mempool_with_lock.remove(&tx);
                                         state_with_lock.update(&tx);
 
-                                        //remove any double spend tx_in in mempool found in block
-                                        //add tx_in in block to spent_tx_in
+                                        // remove any double spend tx_in in mempool found in block
+                                        // mark tx_in in block as spent in spent_tx_in
                                         for tx_in in tx.clone().transaction.tx_input {
                                             if mempool_with_lock
                                                 .spent_tx_in

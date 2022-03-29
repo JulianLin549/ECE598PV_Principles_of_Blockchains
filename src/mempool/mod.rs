@@ -4,7 +4,13 @@ use crate::types::transaction::SignedTransaction;
 use crate::types::transaction::TxIn;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-
+//////
+///  Mempool
+/// tx_map record the key value pair of (tx_hash: tx)
+/// tx_evidence is to store previously existing tx_hash, primary reason for this is to prevent same tx from appearing in mempool again
+/// spent_tx_in is for double spend prevention, it keep track of tx_in already used, either from new block or from previous tx in mempool
+/// if we want to insert tx into mempool, we check all its tx_in. If any of the tx_in is in spent_tx_in, insert is rejected.
+/////
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Mempool {
     pub tx_evidence: HashSet<H256>,
@@ -27,7 +33,7 @@ impl Mempool {
             println!("mempool insert fail, duplicate tx");
             return false;
         }
-        // prevent tx_input: [TxIn{0001,0}, TxIn{0001,0}]
+        // prevent double spend in same tx: [TxIn{0001,0}, TxIn{0001,0}]
         let mut tx_in_temp_set: HashSet<(H256, u8)> = HashSet::new();
         for tx_in in tx.clone().transaction.tx_input {
             if tx_in_temp_set.contains(&(tx_in.previous_output, tx_in.index)) {
@@ -38,9 +44,9 @@ impl Mempool {
             }
         }
 
-        // prevent double spend
-        // Tx1 { tx_input: [TxIn{0001,0}] tx_out: [老王50]}
-        // Tx2 { tx_input: [TxIn{0001,0}] tx_out: [老李50]}
+        // prevent double spend in different tx
+        // Tx1 { tx_input: [TxIn{0001,0}] tx_out: [Alice 50]}
+        // Tx2 { tx_input: [TxIn{0001,0}] tx_out: [Bob 50]}
         for tx_in in tx.clone().transaction.tx_input {
             if self
                 .spent_tx_in

@@ -103,6 +103,7 @@ impl Context {
     }
 
     fn gen_loop(&mut self) {
+        // tx recipient will be selected randomly for these 10 addresses
         let vec_vec: Vec<[u8; 32]> = vec![
             *b"00000000000000000000000000000000",
             *b"00000000000000000000000000000001",

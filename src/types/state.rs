@@ -7,6 +7,14 @@ use ring::signature::{self, KeyPair};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
+//////
+/// State is for storing information about the current state,
+/// the state contains utxo, which is a hashmap of the (previous_out, index): (amount, recipient) key value pair.
+/// we initialize state, granting 100000 coin to "00000000000000000000000000000000"
+/// when updating state, we remove previous used txin then add txout to the state.
+/// the initial state does not belong to any transaction.
+//////
+
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct State {
     //utxo
@@ -67,6 +75,10 @@ impl State {
         // }
     }
 }
+//////
+/// BlockToStateMap keeps track of screenshot of state at particular block hash.
+/// Which means that for each block, there is a related state. We use hashmap for fast retrieval.
+//////
 pub struct BlockToStateMap {
     pub bts_map: HashMap<H256, State>,
 }
