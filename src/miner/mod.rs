@@ -186,7 +186,7 @@ impl Context {
             let mut transactions = Vec::new();
             let mut block_tx_num = 0;
             // if mempool no enough tx to process
-            if mempool_with_lock.tx_map.len() < 10 {
+            if mempool_with_lock.tx_map.len() < 1 {
                 continue;
             }
             for (_tx_key, tx) in mempool_with_lock.tx_map.iter() {

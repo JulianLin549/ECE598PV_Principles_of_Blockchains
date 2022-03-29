@@ -22,14 +22,9 @@ impl State {
         let tx_hash: H256 = bytes32.into();
         let output_idx: u8 = 0;
         let value: u64 = 100000;
-        let init_public_key: [u8; 85] = [
-            48, 83, 2, 1, 1, 48, 5, 6, 3, 43, 101, 112, 4, 34, 4, 32, 187, 131, 74, 161, 134, 11, 240,
-            6, 188, 109, 18, 108, 124, 219, 167, 164, 215, 125, 168, 79, 204, 194, 232, 91, 58, 186,
-            181, 230, 212, 78, 163, 28, 161, 35, 3, 33, 0, 233, 72, 146, 218, 220, 235, 17, 123, 202,
-            112, 119, 63, 134, 105, 134, 71, 34, 185, 71, 193, 59, 66, 43, 137, 50, 194, 120, 234, 97,
-            132, 235, 159,
-        ];
-        let key = signature::Ed25519KeyPair::from_pkcs8(init_public_key.as_ref().into()).unwrap();
+
+        let seed = *b"00000000000000000000000000000000";
+        let key = signature::Ed25519KeyPair::from_seed_unchecked(&seed).unwrap();
 
         let public_key = key.public_key();
         let pb_hash: H256 = digest::digest(&digest::SHA256, public_key.as_ref()).into();
@@ -42,7 +37,9 @@ impl State {
             "ICO completed. {:?} coins are granted to {:?}",
             value, recipient
         );
-        State { utxo: utxo }
+        let state = State { utxo: utxo };
+        println!("{:?}", state);
+        return state;
     }
 
     pub fn update(&mut self, signed_tx: &SignedTransaction) {

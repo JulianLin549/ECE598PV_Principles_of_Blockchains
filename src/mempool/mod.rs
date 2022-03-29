@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 pub struct Mempool {
     pub tx_evidence: HashSet<H256>,
     pub tx_map: HashMap<H256, SignedTransaction>,
-    pub spent_tx_in: HashMap<(H256, u8), H256>, // for double spend prevention (tx)
+    pub spent_tx_in: HashMap<(H256, u8), H256>, // for double spend prevention (tx) (pre_tx, index): cur_tx_hash
 }
 impl Mempool {
     pub fn new() -> Self {
@@ -47,6 +47,7 @@ impl Mempool {
                 .contains_key(&(tx_in.previous_output, tx_in.index))
             {
                 println!("mempool insert fail, tx_in already in spent_tx_in");
+                println!("{:?}", self.spent_tx_in);
                 return false;
             }
         }
@@ -55,7 +56,7 @@ impl Mempool {
             self.spent_tx_in
                 .insert((tx_in.previous_output, tx_in.index), tx.hash());
         }
-
+        println!("{:?}", tx.transaction);
         self.tx_map.insert(tx_hash, tx.clone());
         self.tx_evidence.insert(tx_hash);
         true
