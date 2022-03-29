@@ -115,7 +115,7 @@ fn main() {
     miner_worker_ctx.start();
 
     // start tx_generator
-    let (tx_gen_ctx, tx_gen, tx_to_send) = tx_generator::new(&server, &tx_mempool);
+    let (tx_gen_ctx, tx_gen, tx_to_send) = tx_generator::new(&tx_mempool, &state);
     let tx_gen_worker_ctx = tx_generator::worker::Worker::new(&server, tx_to_send, &tx_mempool);
 
     tx_gen_ctx.start();

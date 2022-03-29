@@ -45,9 +45,12 @@ impl Worker {
                 .recv()
                 .expect("Receive finished block error");
             let mut mempool_with_lock = self.tx_mempool.lock().unwrap();
-            mempool_with_lock.insert(&_transaction);
-            self.server
-                .broadcast(Message::NewTransactionHashes(vec![_transaction.hash()]));
+            // if successfully insert into mempool, then broadcast
+            if mempool_with_lock.insert(&_transaction) {
+                self.server
+                    .broadcast(Message::NewTransactionHashes(vec![_transaction.hash()]));
+            }
+
             std::mem::drop(mempool_with_lock);
         }
     }
